@@ -1,3 +1,5 @@
+""" Created by byebrid on 4/Jan/2019. """
+
 import numpy as np
 import vpython as vp
 import random
@@ -10,28 +12,54 @@ Shift-drag to pan left/right and up/down.
 Touch screen: pinch/extend to zoom, swipe or two-finger rotate."""
 
 
+# ADJUST THESE VALUES AS DESIRED:
+# collisions determines if planets can collide and consequently merge
 collisions = True
 num_of_planets = 100
-max_mass = 10**25
-max_radius = 10**10
-max_init_pos = 10**12
-g_constant = 6.67408 * 10**(-11)
-dt = 5000000
+# Mass is measured in kilograms
+min_mass = 10 ** 23
+max_mass = 10 ** 30
+# Radius is measured in metres
+min_radius = 10 ** 6
+max_radius = 10 ** 9
+# max_init_pos determines farthest rectangular distance from origin each planet can 'spawn'
+max_init_pos = 5 * 10**10
+# max_vel is the fastest valid velocity of a planet. In reality, planets could not go at speed of light.
 max_vel = 3 * 10**8
+# max_proximity is the closest two planets can be (from surface to surface)
+max_proximity = 0
+
+# dt is the time increment (in seconds)
+dt = 500
+# frame_count determines how many frames of animation occur.
+frame_count = 100000
+
+
+# FIXED VALUES:
+# The universal gravitational constant
+g_constant = 6.67408 * 10**(-11)
+# updates determines if planets' positions update each frame. Please leave as True.
+updates = True
 
 
 class Planet(vp.sphere):
+    """A subclass of vpython.sphere. Includes functions to update
+    positions/velocities and also check for collisions
+    """
     def __init__(planet):
         super().__init__(
             color = vp.color.green,
             texture = "https://i.imgur.com/vzAgOcR.jpg",
-            radius = max_radius * random.random(),
-            mass = max_mass * random.random(),
+            radius = random.uniform(min_radius, max_radius),
+            mass = random.uniform(min_mass, max_mass),
             pos = vp.vector(max_init_pos * random.random(), max_init_pos * random.random(), max_init_pos * random.random()),
             vel = vp.vector(0, 0, 0)
             )
 
     def __add__(self, other):
+        """Returns the result of the 2 planets merging (i.e. conserved mass,
+        momentum, and volume)
+        """
         new_planet = Planet()
         new_planet.pos = (self.pos + other.pos) * 0.5
         total_momentum = self.mass * self.vel + other.mass * other.vel
@@ -54,29 +82,35 @@ class Planet(vp.sphere):
         for other in planets:
             if self == other:
                 continue
-
             dist = other.pos - self.pos
-            dist_size = vp.mag(dist)
-            dist_unit_v = dist / dist_size
-            df = g_constant * self.mass * other.mass * dist_unit_v / (dist_size**2)
-            net_force += df
+            dist_size = vp.mag(dist)    # Magnitude of distance
+            dist_unit_v = dist / dist_size  # Unit vector of distance
+            # net_force += G * Mm / R^2
+            net_force += g_constant * self.mass * other.mass * dist_unit_v / (dist_size**2)
 
         accel = net_force / self.mass
         # x = x0 + u*t + 0.5*a*t^2
         self.pos += self.vel * dt + 0.5 * accel * dt**2
         # v = v0 + a*t
         self.vel += accel * dt
-
         if vp.mag(self.vel) > max_vel:
             self.vel *= max_vel / vp.mag(self.vel)
 
+    # Don't need to be staticmethods but why not
     @staticmethod
     def update_all():
+        """Iterates through all planets and updates positions. Technically a
+        little inaccurate because the planets at the front of the list are
+        updated, and THEN the rest are calculated. However, who gives a shit.
+        """
         for planet in planets:
             planet.update()
 
     @staticmethod
     def check_for_collisions():
+        """Checks for collisions and if any occur, merges the planets and
+        repeats until no 2 bodies are 'colliding'. Updates global planets.
+        """
         global planets
         for planet in planets:
             for other in planets:
@@ -84,27 +118,29 @@ class Planet(vp.sphere):
                     continue
 
                 dist = vp.mag(other.pos - planet.pos)
-                if dist <= planet.radius + other.radius:
+                if dist <= planet.radius + other.radius + max_proximity:
                     new_planet = planet + other
-                    new_planet.color = vp.color.red
+                    new_planet.color = vp.color.red # To indicate collision
+
+                    # Need to do this before removing (vpython thingy)
                     planet.visible = False
                     other.visible = False
-                    if planet in planets:
-                        planets.remove(planet)
-                    if other in planets:
-                        planets.remove(other)
+
+                    planets.remove(planet)
+                    planets.remove(other)
                     planets.append(new_planet)
+                    # Recursion!
                     Planet.check_for_collisions()
-                    break
+                    break # Otherwise iterating through list that doesn't exist
+
 
 planets = []
 for index in range(num_of_planets):
     new_planet = Planet()
     planets.append(new_planet)
 
-frame_count = 100000
 for frame in range(frame_count):
     if collisions:
         Planet.check_for_collisions()
-
-    Planet.update_all()
+    if updates:
+        Planet.update_all()
