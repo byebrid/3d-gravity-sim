@@ -1,0 +1,57 @@
+import numpy as np
+import vpython as vp
+import random
+
+vp.scene.caption = """Right button drag or Ctrl-drag to rotate "camera" to view scene.
+To zoom, drag with middle button or Alt/Option depressed, or use scroll wheel.
+     On a two-button mouse, middle is left + right.
+Shift-drag to pan left/right and up/down.
+Touch screen: pinch/extend to zoom, swipe or two-finger rotate."""
+
+num_of_planets = 100
+max_mass = 10**25
+max_radius = 10**7
+max_pos = 10**9           # Maximum initial displacement from origin for planets when they are first created.
+g_constant = 6.67408 * 10**(-11)
+dt = 100                  # Time increment
+
+
+class Planet(vp.sphere):
+    """A subclass of vpython.sphere which 
+    def __init__(self):
+        super().__init__(
+            color = vp.color.green,
+            radius = max_radius * random.random(),
+            mass = max_mass * random.random(),
+            pos = vp.vector(max_pos * random.random(), max_pos * random.random(), max_pos * random.random())
+            )
+        self.vel = vp.vector(0, 0, 0)
+
+    def update(self):
+        net_force = vp.vector(0, 0, 0)
+        for other in planets:
+            if self == other:
+                continue
+
+            dist = other.pos - self.pos
+            dist_size = vp.mag(dist)
+            dist_unit_v = dist / dist_size
+            df = g_constant * self.mass * other.mass * dist_unit_v / (dist_size**2)
+            net_force += df
+
+        accel = net_force / self.mass
+        # x = x0 + u*t + 0.5*a*t^2
+        self.pos += self.vel * dt + 0.5 * accel * dt**2
+        # v = v0 + a*t
+        self.vel += accel * dt
+            
+
+planets = []
+for index in range(num_of_planets + 1):
+    new_planet = Planet()
+    planets.append(new_planet)
+
+frame_count = 100000000
+for frame in range(frame_count + 1):
+    for planet in planets:
+        planet.update()
