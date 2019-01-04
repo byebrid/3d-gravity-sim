@@ -1,6 +1,7 @@
 import numpy as np
 import vpython as vp
 import random
+import math
 
 vp.scene.caption = """Right button drag or Ctrl-drag to rotate "camera" to view scene.
 To zoom, drag with middle button or Alt/Option depressed, or use scroll wheel.
@@ -8,26 +9,47 @@ To zoom, drag with middle button or Alt/Option depressed, or use scroll wheel.
 Shift-drag to pan left/right and up/down.
 Touch screen: pinch/extend to zoom, swipe or two-finger rotate."""
 
+
+collisions = True
 num_of_planets = 100
 max_mass = 10**25
-max_radius = 10**7
-max_pos = 10**9           # Maximum initial displacement from origin for planets when they are first created.
+max_radius = 10**10
+max_init_pos = 10**12
 g_constant = 6.67408 * 10**(-11)
-dt = 100                  # Time increment
+dt = 5000000
+max_vel = 3 * 10**8
 
 
 class Planet(vp.sphere):
-    """A subclass of vpython.sphere which 
-    def __init__(self):
+    def __init__(planet):
         super().__init__(
             color = vp.color.green,
+            texture = "https://i.imgur.com/vzAgOcR.jpg",
             radius = max_radius * random.random(),
             mass = max_mass * random.random(),
-            pos = vp.vector(max_pos * random.random(), max_pos * random.random(), max_pos * random.random())
+            pos = vp.vector(max_init_pos * random.random(), max_init_pos * random.random(), max_init_pos * random.random()),
+            vel = vp.vector(0, 0, 0)
             )
-        self.vel = vp.vector(0, 0, 0)
+
+    def __add__(self, other):
+        new_planet = Planet()
+        new_planet.pos = (self.pos + other.pos) * 0.5
+        total_momentum = self.mass * self.vel + other.mass * other.vel
+        total_mass = self.mass + other.mass
+        new_planet.vel = total_momentum / total_mass
+        new_planet.radius = (self.radius ** 3 + other.radius ** 3) ** (1/3)
+        return new_planet
+
+    def __repr__(self):
+        return '''Planet Object:
+            Mass: {}
+            Radius: {}
+            Pos: {}
+            Vel: {}
+            '''.format(self.mass, self.radius, self.pos, self.vel)
 
     def update(self):
+        """Updates position and velocity of planet"""
         net_force = vp.vector(0, 0, 0)
         for other in planets:
             if self == other:
@@ -44,14 +66,45 @@ class Planet(vp.sphere):
         self.pos += self.vel * dt + 0.5 * accel * dt**2
         # v = v0 + a*t
         self.vel += accel * dt
-            
+
+        if vp.mag(self.vel) > max_vel:
+            self.vel *= max_vel / vp.mag(self.vel)
+
+    @staticmethod
+    def update_all():
+        for planet in planets:
+            planet.update()
+
+    @staticmethod
+    def check_for_collisions():
+        global planets
+        for planet in planets:
+            for other in planets:
+                if planet == other:
+                    continue
+
+                dist = vp.mag(other.pos - planet.pos)
+                if dist <= planet.radius + other.radius:
+                    new_planet = planet + other
+                    new_planet.color = vp.color.red
+                    planet.visible = False
+                    other.visible = False
+                    if planet in planets:
+                        planets.remove(planet)
+                    if other in planets:
+                        planets.remove(other)
+                    planets.append(new_planet)
+                    Planet.check_for_collisions()
+                    break
 
 planets = []
-for index in range(num_of_planets + 1):
+for index in range(num_of_planets):
     new_planet = Planet()
     planets.append(new_planet)
 
-frame_count = 100000000
-for frame in range(frame_count + 1):
-    for planet in planets:
-        planet.update()
+frame_count = 100000
+for frame in range(frame_count):
+    if collisions:
+        Planet.check_for_collisions()
+
+    Planet.update_all()
