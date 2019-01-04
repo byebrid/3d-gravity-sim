@@ -46,7 +46,7 @@ class Planet(vp.sphere):
     """A subclass of vpython.sphere. Includes functions to update
     positions/velocities and also check for collisions
     """
-    def __init__(planet):
+    def __init__(self):
         super().__init__(
             color = vp.color.green,
             texture = "https://i.imgur.com/vzAgOcR.jpg",
